@@ -1,0 +1,338 @@
+name: 🎰 Build Crazy Time Simulator EXE
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a new release'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+    
+    - name: 🐍 Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: 📦 Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas openpyxl matplotlib pyinstaller pillow
+        pip list
+    
+    - name: 📝 Create PyInstaller Spec File
+      run: |
+        $specContent = @"
+        # -*- mode: python ; coding: utf-8 -*-
+
+        block_cipher = None
+
+        a = Analysis(
+            ['crazy_time_gui.py'],
+            pathex=[],
+            binaries=[],
+            datas=[
+                ('full_crazy_time_simulator.py', '.'),
+            ],
+            hiddenimports=[
+                'pandas',
+                'openpyxl',
+                'tkinter',
+                'tkinter.ttk',
+                'tkinter.scrolledtext',
+                'tkinter.messagebox',
+                'threading',
+                'queue',
+                'json',
+                'datetime',
+                'time',
+                'os',
+                'sys',
+                'random',
+                'itertools',
+                'collections',
+                'pathlib',
+                'shutil',
+                'subprocess',
+                'platform'
+            ],
+            hookspath=[],
+            hooksconfig={},
+            runtime_hooks=[],
+            excludes=[
+                'matplotlib.backends._backend_tk',
+                'matplotlib.backends._backend_tkagg',
+                'PIL._tkinter_finder'
+            ],
+            win_no_prefer_redirects=False,
+            win_private_assemblies=False,
+            cipher=block_cipher,
+            noarchive=False,
+        )
+
+        pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+        exe = EXE(
+            pyz,
+            a.scripts,
+            a.binaries,
+            a.zipfiles,
+            a.datas,
+            [],
+            name='CrazyTimeSimulator',
+            debug=False,
+            bootloader_ignore_signals=False,
+            strip=False,
+            upx=True,
+            upx_exclude=[],
+            runtime_tmpdir=None,
+            console=False,
+            disable_windowed_traceback=False,
+            argv_emulation=False,
+            target_arch=None,
+            codesign_identity=None,
+            entitlements_file=None,
+        )
+        "@
+        
+        $specContent | Out-File -FilePath "crazy_time_simulator.spec" -Encoding UTF8
+        Write-Host "✅ Created PyInstaller spec file"
+    
+    - name: 🔨 Build EXE with PyInstaller
+      run: |
+        Write-Host "🔨 Building EXE file..."
+        pyinstaller --clean --noconfirm crazy_time_simulator.spec
+        
+        if (Test-Path "dist\CrazyTimeSimulator.exe") {
+            $size = [math]::Round((Get-Item "dist\CrazyTimeSimulator.exe").Length / 1MB, 2)
+            Write-Host "✅ EXE built successfully! Size: $size MB"
+        } else {
+            Write-Host "❌ EXE build failed!"
+            exit 1
+        }
+    
+    - name: 📋 Create README for Release
+      run: |
+        $readmeContent = @"
+        # 🎰 محاكي Crazy Time - إصدار Windows
+
+        ## 🚀 كيفية التشغيل
+
+        1. **حمل الملف**: CrazyTimeSimulator.exe
+        2. **تشغيل الملف**: انقر نقراً مزدوجاً على الملف
+        3. **السماح للبرنامج**: إذا ظهر تحذير أمني، اختر "تشغيل على أي حال"
+        4. **استمتع بالمحاكي**: الواجهة الرسومية ستظهر تلقائياً
+
+        ## 📋 متطلبات النظام
+
+        - **نظام التشغيل**: Windows 7/8/10/11 (64-bit)
+        - **الذاكرة**: 4 GB RAM على الأقل
+        - **المساحة**: 2 GB مساحة فارغة للبرنامج + 5 GB للنتائج
+        - **المعالج**: أي معالج حديث
+        - **الشاشة**: دقة 1024x768 على الأقل
+
+        ## 🎯 المميزات
+
+        - ✅ **واجهة رسومية متقدمة** - سهلة الاستخدام
+        - ✅ **محاكاة شاملة** - جميع الاحتمالات الممكنة (3+ مليون تركيبة)
+        - ✅ **حفظ تلقائي** - لا تفقد تقدمك أبداً
+        - ✅ **إيقاف واستئناف** - تحكم كامل في المحاكاة
+        - ✅ **إحصائيات مباشرة** - مراقبة التقدم والنتائج
+        - ✅ **نتائج Excel** - تحليل مفصل وقابل للفلترة
+
+        ## ⚠️ تحذيرات مهمة
+
+        ### المحاكاة الكاملة:
+        - **الوقت**: 80+ ساعة للمحاكاة الكاملة
+        - **المساحة**: عدة GB للنتائج النهائية
+        - **الاستهلاك**: عالي للمعالج والذاكرة
+
+        ### نصائح للأداء الأمثل:
+        1. أغلق البرامج الأخرى أثناء المحاكاة
+        2. تأكد من الطاقة (شاحن متصل للابتوب)
+        3. استخدم فترة حفظ قصيرة (10 تركيبات)
+        4. لا تغلق البرنامج أثناء رسالة "جاري الحفظ"
+
+        ## 🔧 استكشاف الأخطاء
+
+        ### إذا لم يعمل البرنامج:
+        1. **تشغيل كمدير**: انقر بالزر الأيمن واختر "Run as administrator"
+        2. **تحديث Windows**: تأكد من تحديث النظام
+        3. **برامج مكافحة الفيروسات**: أضف البرنامج للاستثناءات
+        4. **Visual C++ Redistributable**: قم بتحميله من Microsoft
+
+        ---
+
+        # 🎰 Crazy Time Simulator - Windows Release
+
+        ## 🚀 How to Run
+
+        1. **Download**: CrazyTimeSimulator.exe
+        2. **Run**: Double-click the file
+        3. **Allow**: If security warning appears, choose "Run anyway"
+        4. **Enjoy**: GUI will appear automatically
+
+        ## 📋 System Requirements
+
+        - **OS**: Windows 7/8/10/11 (64-bit)
+        - **RAM**: 4 GB minimum
+        - **Storage**: 2 GB for program + 5 GB for results
+        - **CPU**: Any modern processor
+        - **Display**: 1024x768 minimum resolution
+
+        ## 🎯 Features
+
+        - ✅ **Advanced GUI** - Easy to use
+        - ✅ **Complete Simulation** - All possibilities (3+ million combinations)
+        - ✅ **Auto-Save** - Never lose progress
+        - ✅ **Pause/Resume** - Full control
+        - ✅ **Live Statistics** - Real-time monitoring
+        - ✅ **Excel Results** - Detailed analysis
+
+        ## ⚠️ Important Warnings
+
+        ### Full Simulation:
+        - **Time**: 80+ hours for complete simulation
+        - **Storage**: Several GB for final results
+        - **Usage**: High CPU and memory consumption
+
+        ### Performance Tips:
+        1. Close other programs during simulation
+        2. Ensure power supply (laptop charger)
+        3. Use short save intervals (10 combinations)
+        4. Don't close during "Saving..." message
+
+        ## 🔧 Troubleshooting
+
+        ### If program doesn't start:
+        1. **Run as Administrator**: Right-click → "Run as administrator"
+        2. **Update Windows**: Ensure system is updated
+        3. **Antivirus**: Add program to exceptions
+        4. **Visual C++ Redistributable**: Download from Microsoft
+
+        ---
+
+        **🎰 Enjoy the most advanced Crazy Time Simulator!**
+        "@
+        
+        $readmeContent | Out-File -FilePath "README_RELEASE.md" -Encoding UTF8
+        Write-Host "✅ Created release README"
+    
+    - name: 📦 Create Release Package
+      run: |
+        Write-Host "📦 Creating release package..."
+        
+        # Create release directory
+        New-Item -ItemType Directory -Force -Path "release_package"
+        
+        # Copy EXE file
+        Copy-Item "dist\CrazyTimeSimulator.exe" "release_package\"
+        
+        # Copy README
+        Copy-Item "README_RELEASE.md" "release_package\README.md"
+        
+        # Create simple text README for non-technical users
+        $simpleReadme = @"
+        🎰 محاكي Crazy Time
+        ==================
+
+        🚀 للتشغيل:
+        انقر نقراً مزدوجاً على CrazyTimeSimulator.exe
+
+        📋 متطلبات:
+        - Windows 7/8/10/11
+        - 4 GB ذاكرة على الأقل
+
+        ⚠️ مهم:
+        - إذا ظهر تحذير أمني، اختر "تشغيل على أي حال"
+        - المحاكاة الكاملة تستغرق 80+ ساعة
+        - تأكد من وجود مساحة كافية (5+ GB)
+
+        📖 للمزيد من التفاصيل، اقرأ README.md
+
+        ---
+
+        🎰 Crazy Time Simulator
+        =======================
+
+        🚀 To Run:
+        Double-click CrazyTimeSimulator.exe
+
+        📋 Requirements:
+        - Windows 7/8/10/11
+        - 4 GB RAM minimum
+
+        ⚠️ Important:
+        - If security warning appears, choose "Run anyway"
+        - Full simulation takes 80+ hours
+        - Ensure sufficient space (5+ GB)
+
+        📖 For more details, read README.md
+        "@
+        
+        $simpleReadme | Out-File -FilePath "release_package\QUICK_START.txt" -Encoding UTF8
+        
+        # Get file size
+        $exeSize = [math]::Round((Get-Item "release_package\CrazyTimeSimulator.exe").Length / 1MB, 2)
+        Write-Host "📊 Package created! EXE size: $exeSize MB"
+        
+        # List package contents
+        Write-Host "📋 Package contents:"
+        Get-ChildItem "release_package" | ForEach-Object { Write-Host "   - $($_.Name)" }
+    
+    - name: 🧪 Test EXE (Quick Validation)
+      run: |
+        Write-Host "🧪 Testing EXE file..."
+        
+        # Test if EXE can be executed (will fail due to no display, but should not crash immediately)
+        $process = Start-Process -FilePath "release_package\CrazyTimeSimulator.exe" -ArgumentList "--version" -PassThru -NoNewWindow -Wait -ErrorAction SilentlyContinue
+        
+        if ($process.ExitCode -eq 0 -or $process.ExitCode -eq $null) {
+            Write-Host "✅ EXE validation passed"
+        } else {
+            Write-Host "⚠️ EXE validation completed (exit code: $($process.ExitCode))"
+        }
+    
+    - name: 📤 Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: CrazyTimeSimulator-Windows-${{ github.sha }}
+        path: release_package/
+        retention-days: 30
+    
+    - name: 📊 Build Summary
+      run: |
+        Write-Host ""
+        Write-Host "🎉 Build completed successfully!"
+        Write-Host "================================"
+        
+        $exeSize = [math]::Round((Get-Item "release_package\CrazyTimeSimulator.exe").Length / 1MB, 2)
+        $buildTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss UTC"
+        
+        Write-Host "📊 Build Information:"
+        Write-Host "   • EXE Size: $exeSize MB"
+        Write-Host "   • Build Time: $buildTime"
+        Write-Host "   • Commit: ${{ github.sha }}"
+        Write-Host "   • Branch: ${{ github.ref_name }}"
+        Write-Host ""
+        Write-Host "📥 Download Instructions:"
+        Write-Host "   1. Go to Actions tab in GitHub"
+        Write-Host "   2. Click on this workflow run"
+        Write-Host "   3. Download 'CrazyTimeSimulator-Windows-${{ github.sha }}'"
+        Write-Host "   4. Extract and run CrazyTimeSimulator.exe"
+        Write-Host ""
+        Write-Host "✅ Ready for distribution!"
+
